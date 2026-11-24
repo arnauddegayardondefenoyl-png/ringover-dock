@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ringover · CRM Arnaud</title>
+<style>
+  html,body{margin:0;height:100%;font:14px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;background:#0b1f4b}
+  #bar{height:36px;display:flex;align-items:center;gap:10px;padding:0 14px;color:#fff}
+  #bar b{font-weight:700}
+  #st{opacity:.9}
+  #r{display:block;border:0;width:100%;height:calc(100% - 36px);background:#fff}
+</style>
+</head>
+<body>
+<div id="bar"><b>Ringover</b><span id="st">Prêt : clique sur un numéro dans le CRM.</span></div>
+<iframe id="r" src="https://app.ringover.com" allow="microphone; autoplay; clipboard-read; clipboard-write"></iframe>
+<script>
+{
+  // Onglet Ringover pour le CRM d'Arnaud.
+  // Le CRM ouvre cette page (toujours dans le même onglet) avec le numéro après le #.
+  // La page affiche l'application web Ringover (méthode officielle du SDK Ringover)
+  // et préremplit le numéro : c'est toi qui cliques sur Appeler.
+  const O = "https://app.ringover.com";
+  const f = document.getElementById("r");
+  const st = document.getElementById("st");
+  let ready = false, pending = "";
+
+  const numFromHash = () => {
+    let d = decodeURIComponent(location.hash.slice(1)).replace(/[^\d+]/g, "");
+    if (/^0\d{9}$/.test(d)) d = "+33" + d.slice(1);
+    if (d.startsWith("00")) d = "+" + d.slice(2);
+    if (d && !d.startsWith("+")) d = "+" + d;
+    return d.length >= 10 ? d : "";
+  };
+
+  const dial = () => {
+    if (!ready || !pending) return;
+    f.contentWindow.postMessage({ action: "dial", number: pending, from_number: null }, O);
+    st.textContent = "Numéro prérempli : " + pending + " — clique sur Appeler dans Ringover.";
+    document.title = "Ringover · " + pending;
+    pending = "";
+  };
+
+  const take = () => {
+    const n = numFromHash();
+    if (!n) return;
+    pending = n;
+    st.textContent = "Numéro reçu : " + n + (ready ? "" : " (en attente de Ringover…)");
+    dial();
+  };
+
+  window.addEventListener("message", e => {
+    if (e.origin !== O) return;
+    const d = e.data || {};
+    if (d.action === "checkSDK") {
+      f.contentWindow.postMessage({ action: "presenceSDK", location: window.location.origin }, O);
+    }
+    if (d.action === "dialerReady" || d.action === "login" || d.action === "changePage") {
+      if (!ready) { ready = true; setTimeout(dial, 500); }
+    }
+  });
+
+  window.addEventListener("hashchange", take);
+  take();
+}
+</script>
+</body>
+</html>
